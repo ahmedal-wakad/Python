@@ -1,0 +1,52 @@
+# -*- coding: utf-8 -*-
+"""
+Dynamo (CPython3) - Civil 3D
+<Script title>
+
+Inputs:
+    IN[0] : ...
+    IN[1] : run (bool) -> True to execute
+Output:
+    OUT   : ...
+"""
+
+# 1) Load the AutoCAD / Civil 3D .NET assemblies
+import clr
+clr.AddReference('AcMgd')
+clr.AddReference('AcCoreMgd')
+clr.AddReference('AcDbMgd')
+clr.AddReference('AecBaseMgd')
+clr.AddReference('AeccDbMgd')
+
+from Autodesk.AutoCAD.ApplicationServices import Application
+from Autodesk.AutoCAD.DatabaseServices import OpenMode
+from Autodesk.AutoCAD.Geometry import Point3d
+from Autodesk.Civil.ApplicationServices import CivilApplication
+
+# 2) Inputs
+run = IN[1] if len(IN) > 1 else False
+
+
+# 3) Main
+def main():
+    if not run:
+        return "Set IN[1] = True to run."
+
+    adoc = Application.DocumentManager.MdiActiveDocument
+    db = adoc.Database
+    civdoc = CivilApplication.ActiveDocument
+    result = []
+
+    with adoc.LockDocument():
+        with db.TransactionManager.StartTransaction() as t:
+            # your code here
+            t.Commit()
+
+    return result
+
+
+try:
+    OUT = main()
+except Exception as ex:
+    import traceback
+    OUT = "Error: {}\n{}".format(ex, traceback.format_exc())
