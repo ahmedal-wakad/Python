@@ -26,7 +26,7 @@ templates/                    ← قوالب جاهزة تبدأ منها أي �
 | الاسم المختصر | البرنامج | القسم | الوصف |
 |---|---|---|---|
 | [`corners-cogo`](civil3d/dynamo/pipe-networks/corners-cogo/) | Civil 3D + Dynamo (CPython3) | Pipe Networks | يقرا الـ Structures ويطلع COGO Point على الأربع أركان |
-| [`swap-structures`](civil3d/dynamo/pipe-networks/swap-structures/) | Civil 3D + Dynamo (CPython3) | Pipe Networks | يعمل Swap لكذا Structure مرة واحدة علشان تبقى زي Structure مرجع |
+| [`swap-structures`](civil3d/dynamo/pipe-networks/swap-structures/) | Civil 3D + Dynamo Player (CPython3) | Pipe Networks | من Dynamo Player: تحدد كذا Structure، وتختار Parts List وبعده Family وبعده Size، فيتغيّروا كلهم مرة واحدة |
 
 ## قواعد إضافة مشروع جديد
 

@@ -5,15 +5,21 @@ clr.AddReference('AcCoreMgd')
 clr.AddReference('AcDbMgd')
 clr.AddReference('AecBaseMgd')
 clr.AddReference('AeccDbMgd')
+clr.AddReference('System.Windows.Forms')
+clr.AddReference('System.Drawing')
 
 from Autodesk.AutoCAD.ApplicationServices import Application
 from Autodesk.AutoCAD.DatabaseServices import OpenMode, ObjectId
 from Autodesk.Civil import DomainType
+from Autodesk.Civil.ApplicationServices import CivilApplication
 from Autodesk.Civil.DatabaseServices import Structure
+from System.Drawing import Point, Size
+from System.Windows.Forms import (Form, Label, ComboBox, Button, MessageBox,
+                                  ComboBoxStyle, DialogResult, FormBorderStyle,
+                                  FormStartPosition, MessageBoxButtons, MessageBoxIcon)
 
-targets_in = IN[0] if len(IN) > 0 else None
-reference_in = IN[1] if len(IN) > 1 else None
-run = IN[2] if len(IN) > 2 else False
+TITLE = "Swap Structures"
+selection_in = IN[0] if len(IN) > 0 else None
 
 
 def flatten(items):
@@ -44,89 +50,202 @@ def get_ids(items):
     return ids
 
 
-def find_part_ids(t, parts_list_id, family_name, size_name):
-    parts_list = t.GetObject(parts_list_id, OpenMode.ForRead)
-    for family_id in parts_list.GetPartFamilyIdsByDomain(DomainType.Structure):
-        family = t.GetObject(family_id, OpenMode.ForRead)
-        if family.Name != family_name:
+def read_structures(t, ids):
+    structures = []
+    others = 0
+    for oid in ids:
+        if isinstance(t.GetObject(oid, OpenMode.ForRead), Structure):
+            structures.append(oid)
+        else:
+            others += 1
+    return structures, others
+
+
+def read_catalog(t, civdoc):
+    catalog = []
+    for list_id in civdoc.Styles.PartsListSet:
+        parts_list = t.GetObject(list_id, OpenMode.ForRead)
+        families = []
+        for family_id in parts_list.GetPartFamilyIdsByDomain(DomainType.Structure):
+            family = t.GetObject(family_id, OpenMode.ForRead)
+            sizes = []
+            for i in range(family.PartSizeCount):
+                size_id = family[i]
+                sizes.append((t.GetObject(size_id, OpenMode.ForRead).Name, size_id))
+            if sizes:
+                families.append((family.Name, family_id, sizes))
+        if families:
+            catalog.append((parts_list.Name, str(list_id), families))
+    return catalog
+
+
+def default_list_index(t, catalog, structure_id):
+    st = t.GetObject(structure_id, OpenMode.ForRead)
+    network = t.GetObject(st.NetworkId, OpenMode.ForRead)
+    key = str(network.PartsListId)
+    for i, item in enumerate(catalog):
+        if item[1] == key:
+            return i
+    return 0
+
+
+def add_row(form, text, top):
+    label = Label()
+    label.Text = text
+    label.Location = Point(15, top + 4)
+    label.Size = Size(100, 20)
+    combo = ComboBox()
+    combo.DropDownStyle = ComboBoxStyle.DropDownList
+    combo.Location = Point(120, top)
+    combo.Size = Size(500, 24)
+    form.Controls.Add(label)
+    form.Controls.Add(combo)
+    return combo
+
+
+def add_button(form, text, left, result):
+    button = Button()
+    button.Text = text
+    button.Location = Point(left, 160)
+    button.Size = Size(85, 28)
+    button.DialogResult = result
+    form.Controls.Add(button)
+    return button
+
+
+def fill(combo, names):
+    combo.BeginUpdate()
+    combo.Items.Clear()
+    for name in names:
+        combo.Items.Add(name)
+    combo.EndUpdate()
+    if combo.Items.Count > 0:
+        combo.SelectedIndex = 0
+
+
+def show_form(catalog, count, others, default_index):
+    form = Form()
+    form.Text = TITLE
+    form.ClientSize = Size(640, 205)
+    form.StartPosition = FormStartPosition.CenterScreen
+    form.FormBorderStyle = FormBorderStyle.FixedDialog
+    form.MaximizeBox = False
+    form.MinimizeBox = False
+    form.TopMost = True
+
+    info = Label()
+    info.Text = "Selected structures: {}".format(count)
+    if others:
+        info.Text += "   (other objects ignored: {})".format(others)
+    info.Location = Point(15, 15)
+    info.Size = Size(605, 20)
+    form.Controls.Add(info)
+
+    cmb_list = add_row(form, "Parts List", 45)
+    cmb_family = add_row(form, "Family", 80)
+    cmb_size = add_row(form, "Size", 115)
+    btn_ok = add_button(form, "Swap", 440, DialogResult.OK)
+    btn_cancel = add_button(form, "Cancel", 535, DialogResult.Cancel)
+    form.AcceptButton = btn_ok
+    form.CancelButton = btn_cancel
+    btn_ok.Enabled = False
+
+    def families():
+        i = cmb_list.SelectedIndex
+        return catalog[i][2] if i >= 0 else []
+
+    def sizes():
+        i = cmb_family.SelectedIndex
+        return families()[i][2] if i >= 0 else []
+
+    def on_list_changed(sender, e):
+        fill(cmb_family, [f[0] for f in families()])
+
+    def on_family_changed(sender, e):
+        fill(cmb_size, [s[0] for s in sizes()])
+
+    def on_size_changed(sender, e):
+        btn_ok.Enabled = cmb_size.SelectedIndex >= 0
+
+    cmb_list.SelectedIndexChanged += on_list_changed
+    cmb_family.SelectedIndexChanged += on_family_changed
+    cmb_size.SelectedIndexChanged += on_size_changed
+
+    fill(cmb_list, [p[0] for p in catalog])
+    cmb_list.SelectedIndex = default_index
+
+    if form.ShowDialog() == DialogResult.OK:
+        family = families()[cmb_family.SelectedIndex]
+        size = family[2][cmb_size.SelectedIndex]
+        return family[0], family[1], size[0], size[1]
+    return None
+
+
+def swap_all(t, structure_ids, family_name, family_id, size_name, size_id):
+    report = []
+    counts = {"swap": 0, "skip": 0, "fail": 0}
+    for oid in structure_ids:
+        st = t.GetObject(oid, OpenMode.ForRead)
+        old_part = "{} / {}".format(st.PartFamilyName, st.PartSizeName)
+        if st.PartFamilyName == family_name and st.PartSizeName == size_name:
+            counts["skip"] += 1
+            report.append([st.Name, old_part, "Skipped: already the same part"])
             continue
-        for i in range(family.PartSizeCount):
-            size_id = family[i]
-            if t.GetObject(size_id, OpenMode.ForRead).Name == size_name:
-                return family_id, size_id
-        return family_id, None
-    return None, None
+        try:
+            st.UpgradeOpen()
+            st.SwapPartFamilyAndSize(family_id, size_id)
+            counts["swap"] += 1
+            report.append([st.Name, old_part, "Swapped"])
+        except Exception as ex:
+            counts["fail"] += 1
+            report.append([st.Name, old_part, "Failed: {}".format(ex)])
+    return counts, report
+
+
+def finish(text):
+    MessageBox.Show(text, TITLE, MessageBoxButtons.OK, MessageBoxIcon.Information)
+    return text
 
 
 def main():
-    target_ids = get_ids(targets_in)
-    ref_ids = get_ids(reference_in)
-    if not target_ids:
-        return "Connect the structures to swap (Select Objects) to IN[0]."
-    if not ref_ids:
-        return "Connect the reference structure (Select Object) to IN[1]."
+    ids = get_ids(selection_in)
+    if not ids:
+        return finish("Select the structures first (Select Objects).")
 
     adoc = Application.DocumentManager.MdiActiveDocument
     db = adoc.Database
-    report = []
-    counts = {"swap": 0, "skip": 0, "fail": 0}
+    civdoc = CivilApplication.ActiveDocument
 
     with adoc.LockDocument():
         with db.TransactionManager.StartTransaction() as t:
-            ref = t.GetObject(ref_ids[0], OpenMode.ForRead)
-            if not isinstance(ref, Structure):
-                return "IN[1] is not a structure."
-
-            family_name = ref.PartFamilyName
-            size_name = ref.PartSizeName
-            new_part = "{} / {}".format(family_name, size_name)
-            cache = {}
-
-            for oid in target_ids:
-                st = t.GetObject(oid, OpenMode.ForRead)
-                if not isinstance(st, Structure):
-                    counts["skip"] += 1
-                    report.append([st.GetType().Name, "-", "Skipped: not a structure"])
-                    continue
-
-                old_part = "{} / {}".format(st.PartFamilyName, st.PartSizeName)
-                if st.PartFamilyName == family_name and st.PartSizeName == size_name:
-                    counts["skip"] += 1
-                    report.append([st.Name, old_part, "Skipped: already the same part"])
-                    continue
-
-                net = t.GetObject(st.NetworkId, OpenMode.ForRead)
-                key = str(net.PartsListId)
-                if key not in cache:
-                    cache[key] = find_part_ids(t, net.PartsListId, family_name, size_name)
-                family_id, size_id = cache[key]
-
-                if family_id is None or size_id is None:
-                    counts["fail"] += 1
-                    missing = "family" if family_id is None else "size"
-                    report.append([st.Name, old_part,
-                                   "Failed: reference {} not in parts list of network '{}'".format(missing, net.Name)])
-                    continue
-
-                if not run:
-                    counts["swap"] += 1
-                    report.append([st.Name, old_part, "Will swap"])
-                    continue
-
-                try:
-                    st.UpgradeOpen()
-                    st.SwapPartFamilyAndSize(family_id, size_id)
-                    counts["swap"] += 1
-                    report.append([st.Name, old_part, "Swapped"])
-                except Exception as ex:
-                    counts["fail"] += 1
-                    report.append([st.Name, old_part, "Failed: {}".format(ex)])
-
+            structure_ids, others = read_structures(t, ids)
+            catalog = read_catalog(t, civdoc)
+            default_index = 0
+            if structure_ids and catalog:
+                default_index = default_list_index(t, catalog, structure_ids[0])
             t.Commit()
 
-    mode = "Swapped" if run else "Will swap (preview - set IN[2] = True to apply)"
-    summary = "Target part: {} | {}: {} | Skipped: {} | Failed: {}".format(
-        new_part, mode, counts["swap"], counts["skip"], counts["fail"])
+    if not structure_ids:
+        return finish("No structures in the selection.")
+    if not catalog:
+        return finish("No parts list with structures in this drawing.")
+
+    choice = show_form(catalog, len(structure_ids), others, default_index)
+    if choice is None:
+        return "Cancelled."
+    family_name, family_id, size_name, size_id = choice
+
+    with adoc.LockDocument():
+        with db.TransactionManager.StartTransaction() as t:
+            counts, report = swap_all(t, structure_ids, family_name, family_id, size_name, size_id)
+            t.Commit()
+
+    summary = "New part: {} / {}\nSwapped: {}\nSkipped (already the same): {}\nFailed: {}".format(
+        family_name, size_name, counts["swap"], counts["skip"], counts["fail"])
+    failed = [r for r in report if r[2].startswith("Failed")]
+    if failed:
+        summary += "\n\n" + "\n".join("{}: {}".format(r[0], r[2]) for r in failed[:10])
+    finish(summary)
     return [summary, report]
 
 
