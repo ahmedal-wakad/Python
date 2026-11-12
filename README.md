@@ -9,25 +9,29 @@
 civil3d/                      ← كل ما يخص Civil 3D
 └── dynamo/                   ← أكواد Dynamo (CPython3)
     └── pipe-networks/        ← شبكات المواسير والـ Structures
-        └── structure-corners-to-cogo/
-            ├── README.md                       ← الشرح والمدخلات والمخرجات
-            └── structure_corners_to_cogo.txt   ← الكود
+        └── corners-cogo/
+            ├── README.md          ← الشرح والمدخلات والمخرجات
+            └── corners-cogo.txt   ← الكود
 templates/                    ← قوالب جاهزة تبدأ منها أي كود جديد
 ```
 
 ## فهرس المشاريع
 
-| المشروع | البرنامج | القسم | الوصف |
+كل مشروع ليه **اسم مختصر**، وهو نفس اسم الفولدر ونفس اسم ملف الكود.
+لما تحب تعدّل في مشروع، قول لـ Claude اسمه المختصر بس، مثلاً: «عدّل في `corners-cogo`».
+
+| الاسم المختصر | البرنامج | القسم | الوصف |
 |---|---|---|---|
-| [Structure Corners → COGO](civil3d/dynamo/pipe-networks/structure-corners-to-cogo/) | Civil 3D + Dynamo (CPython3) | Pipe Networks | يقرا الـ Structures ويطلع COGO Point على الأربع أركان |
+| [`corners-cogo`](civil3d/dynamo/pipe-networks/corners-cogo/) | Civil 3D + Dynamo (CPython3) | Pipe Networks | يقرا الـ Structures ويطلع COGO Point على الأربع أركان |
 
 ## قواعد إضافة مشروع جديد
 
 1. اختار القسم المناسب، مثلاً `civil3d/dynamo/alignments/` أو `civil3d/dynamo/corridors/` أو `civil3d/dynamo/surfaces/`. ولو القسم مش موجود اعمله.
-2. اعمل فولدر للمشروع باسم إنجليزي صغير بشَرط، مثلاً `pipe-labels-export`.
+2. اختار للمشروع **اسم مختصر**: كلمتين إنجليزي صغيرين بينهم شَرطة، مثلاً `pipe-labels`. اتأكد إنه مش مكرر في الفهرس.
+   الفولدر بيتسمى بالاسم ده، وملف الكود كمان (`pipe-labels.txt`).
 3. جوه الفولدر حط:
    - `README.md` فيه الشرح والمدخلات والمخرجات.
-   - ملف الكود بامتداد `.txt`.
+   - ملف الكود بامتداد `.txt`، فيه الكود بس من غير شرح.
 4. ابدأ الكود من القالب [`templates/dynamo_civil3d_cpython3_template.txt`](templates/dynamo_civil3d_cpython3_template.txt).
 5. ضيف سطر للمشروع في جدول **فهرس المشاريع** اللي فوق.
 

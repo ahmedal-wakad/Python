@@ -1,10 +1,11 @@
-# Structure Corners → COGO Points
+# `corners-cogo` — Structure Corners → COGO Points
 
 | | |
 |---|---|
+| **الاسم المختصر** | `corners-cogo` |
 | **البرنامج** | Civil 3D + Dynamo |
 | **المحرك** | CPython3 |
-| **الكود (جاهز للنسخ)** | [`structure_corners_to_cogo.txt`](structure_corners_to_cogo.txt) |
+| **الكود (جاهز للنسخ)** | [`corners-cogo.txt`](corners-cogo.txt) |
 
 ملف الكود فيه الكود بس، من غير أي تعليقات أو شرح، علشان تنسخه كله مرة واحدة.
 الشرح والتعليمات كلها في الملف ده.
@@ -21,7 +22,7 @@
 ## طريقة الاستخدام
 1. افتح الرسمة في Civil 3D، وبعدها افتح Dynamo.
 2. ضيف **Python Script** node، واختار المحرك **CPython3**.
-3. افتح ملف [`structure_corners_to_cogo.txt`](structure_corners_to_cogo.txt) على GitHub، ودوس **Copy raw file**، والصق الكود جوه الـ node.
+3. افتح ملف [`corners-cogo.txt`](corners-cogo.txt) على GitHub، ودوس **Copy raw file**، والصق الكود جوه الـ node.
 4. كبّر الـ node لحد ما يبقى فيها **٣ مداخل** (بزرار `+`)، ووصّل فيها:
 
 | المدخل | الـ Node اللي توصّلها | القيمة |
