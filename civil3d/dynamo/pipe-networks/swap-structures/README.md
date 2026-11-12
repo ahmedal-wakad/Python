@@ -134,16 +134,15 @@ clr.AddReference('System.Drawing')
 ```python
 from Autodesk.AutoCAD.ApplicationServices import Application
 from Autodesk.AutoCAD.DatabaseServices import OpenMode, ObjectId
-from Autodesk.Civil import DomainType
 from Autodesk.Civil.ApplicationServices import CivilApplication
-from Autodesk.Civil.DatabaseServices import Structure
+from Autodesk.Civil.DatabaseServices import DomainType, Structure
 from System.Drawing import Point, Size
 from System.Windows.Forms import (Form, Label, ComboBox, Button, MessageBox,
                                   ComboBoxStyle, DialogResult, FormBorderStyle,
                                   FormStartPosition, MessageBoxButtons, MessageBoxIcon)
 ```
 - `CivilApplication`: منها بنوصل للـ Parts Lists اللي في الرسمة.
-- `DomainType`: علشان نطلب من الـ Parts List الـ Families بتاعة الـ **Structures** بس، من غير الـ Pipes.
+- `DomainType`: علشان نطلب من الـ Parts List الـ Families بتاعة الـ **Structures** بس، من غير الـ Pipes. مكانه في `Autodesk.Civil.DatabaseServices`، ولو اتكتب `from Autodesk.Civil import DomainType` بيطلع `ImportError`.
 - `Structure`: علشان نتأكد إن العنصر اللي اتحدد Structure فعلاً.
 - من `System.Windows.Forms`: `Form` الشاشة، و`Label` النص، و`ComboBox` القايمة، و`Button` الزرار، و`MessageBox` رسالة النتيجة. والباقي إعدادات شكلها.
 

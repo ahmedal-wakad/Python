@@ -10,9 +10,8 @@ clr.AddReference('System.Drawing')
 
 from Autodesk.AutoCAD.ApplicationServices import Application
 from Autodesk.AutoCAD.DatabaseServices import OpenMode, ObjectId
-from Autodesk.Civil import DomainType
 from Autodesk.Civil.ApplicationServices import CivilApplication
-from Autodesk.Civil.DatabaseServices import Structure
+from Autodesk.Civil.DatabaseServices import DomainType, Structure
 from System.Drawing import Point, Size
 from System.Windows.Forms import (Form, Label, ComboBox, Button, MessageBox,
                                   ComboBoxStyle, DialogResult, FormBorderStyle,
