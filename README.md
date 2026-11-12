@@ -9,9 +9,12 @@
 civil3d/                      ← كل ما يخص Civil 3D
 └── dynamo/                   ← أكواد Dynamo (CPython3)
     └── pipe-networks/        ← شبكات المواسير والـ Structures
-        └── corners-cogo/
-            ├── README.md          ← الشرح والمدخلات والمخرجات
-            └── corners-cogo.txt   ← الكود
+        ├── corners-cogo/
+        │   ├── README.md          ← الشرح والمدخلات والمخرجات
+        │   └── corners-cogo.txt   ← الكود
+        └── swap-structures/
+            ├── README.md
+            └── swap-structures.txt
 templates/                    ← قوالب جاهزة تبدأ منها أي كود جديد
 ```
 
@@ -23,6 +26,7 @@ templates/                    ← قوالب جاهزة تبدأ منها أي �
 | الاسم المختصر | البرنامج | القسم | الوصف |
 |---|---|---|---|
 | [`corners-cogo`](civil3d/dynamo/pipe-networks/corners-cogo/) | Civil 3D + Dynamo (CPython3) | Pipe Networks | يقرا الـ Structures ويطلع COGO Point على الأربع أركان |
+| [`swap-structures`](civil3d/dynamo/pipe-networks/swap-structures/) | Civil 3D + Dynamo (CPython3) | Pipe Networks | يعمل Swap لكذا Structure مرة واحدة علشان تبقى زي Structure مرجع |
 
 ## قواعد إضافة مشروع جديد
 
