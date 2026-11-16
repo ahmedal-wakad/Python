@@ -1,0 +1,297 @@
+import clr
+import math
+
+clr.AddReference('AcMgd')
+clr.AddReference('AcCoreMgd')
+clr.AddReference('AcDbMgd')
+clr.AddReference('AecBaseMgd')
+clr.AddReference('AeccDbMgd')
+clr.AddReference('AeccPressurePipesMgd')
+
+from Autodesk.AutoCAD.ApplicationServices import Application
+from Autodesk.AutoCAD.DatabaseServices import OpenMode, ObjectId
+from Autodesk.AutoCAD.Geometry import Matrix3d, Point3d, Vector3d
+from Autodesk.Civil.ApplicationServices import CivilApplication, CivilDocumentPressurePipesExtension
+from Autodesk.Civil.DatabaseServices import PressureFitting
+
+source_in = IN[0] if len(IN) > 0 else ""
+run = IN[1] if len(IN) > 1 else False
+elev_mode = str(IN[2] if len(IN) > 2 and IN[2] else "top").strip().lower()
+name_filter = str(IN[3] if len(IN) > 3 and IN[3] else "").strip().lower()
+
+COARSE_STEP = math.radians(2.0)
+ANGLE_TOL = 1e-7
+QUARTER_TURN = math.pi / 2.0
+
+
+class Scope(object):
+    def __init__(self, target):
+        self.target = target
+
+    def __enter__(self):
+        return self.target
+
+    def __exit__(self, exc_type, exc_value, exc_tb):
+        self.target.Dispose()
+        return False
+
+
+def flatten(items):
+    if items is None:
+        return []
+    if not isinstance(items, (list, tuple)):
+        return [items]
+    flat = []
+    for item in items:
+        flat.extend(flatten(item))
+    return flat
+
+
+def to_object_id(item):
+    if isinstance(item, ObjectId):
+        return item
+    if hasattr(item, "InternalObjectId"):
+        return item.InternalObjectId
+    return None
+
+
+def get_ids(items):
+    ids = []
+    for item in flatten(items):
+        oid = to_object_id(item)
+        if oid is not None and not oid.IsNull and not oid.IsErased:
+            ids.append(oid)
+    return ids
+
+
+def text_of(obj, prop):
+    try:
+        value = getattr(obj, prop)
+    except Exception:
+        return ""
+    return str(value) if value is not None else ""
+
+
+def part_label(fitting):
+    return text_of(fitting, "PartDescription") or text_of(fitting, "PartFamilyName") or "Fitting"
+
+
+def matches_filter(fitting):
+    if not name_filter:
+        return True
+    text = " ".join([text_of(fitting, "Name"),
+                     text_of(fitting, "PartDescription"),
+                     text_of(fitting, "PartFamilyName")])
+    return name_filter in text.lower()
+
+
+def collect_ids(t, civdoc):
+    if not isinstance(source_in, str):
+        ids = get_ids(source_in)
+        if not ids:
+            return [], ("Nothing selected. Select the fittings (Select Objects), "
+                        "or connect a String with the network name to IN[0].")
+        return ids, ""
+
+    wanted = source_in.strip()
+    ids, networks = [], []
+    for net_id in CivilDocumentPressurePipesExtension.GetPressurePipeNetworkIds(civdoc):
+        net = t.GetObject(net_id, OpenMode.ForRead)
+        networks.append(net.Name)
+        if wanted and net.Name != wanted:
+            continue
+        for fitting_id in net.GetFittingIds():
+            ids.append(fitting_id)
+    if wanted and wanted not in networks:
+        return [], "Pressure network '{}' not found. Networks in this drawing: {}".format(
+            wanted, ", ".join(networks) or "none")
+    return ids, ""
+
+
+def collect_fittings(t, civdoc):
+    ids, problem = collect_ids(t, civdoc)
+    if problem:
+        return [], problem
+    fittings, parts = [], set()
+    for oid in ids:
+        obj = t.GetObject(oid, OpenMode.ForRead)
+        if not isinstance(obj, PressureFitting):
+            continue
+        parts.add(part_label(obj))
+        if matches_filter(obj):
+            fittings.append(obj)
+    if not parts:
+        return [], "No pressure fittings found."
+    if not fittings:
+        return [], "No fitting matches the filter '{}'. Parts found: {}".format(
+            name_filter, ", ".join(sorted(parts)))
+    return fittings, ""
+
+
+def box_of(entity):
+    ext = entity.GeometricExtents
+    return (ext.MinPoint.X, ext.MinPoint.Y, ext.MinPoint.Z,
+            ext.MaxPoint.X, ext.MaxPoint.Y, ext.MaxPoint.Z)
+
+
+def box_at(body, pivot, angle):
+    with Scope(body.Clone()) as copy:
+        copy.TransformBy(Matrix3d.Rotation(-angle, Vector3d.ZAxis, pivot))
+        return box_of(copy)
+
+
+def plan_area(box):
+    return (box[3] - box[0]) * (box[4] - box[1])
+
+
+def golden_min(f, lo, hi):
+    ratio = (math.sqrt(5.0) - 1.0) / 2.0
+    c = hi - ratio * (hi - lo)
+    d = lo + ratio * (hi - lo)
+    fc, fd = f(c), f(d)
+    while hi - lo > ANGLE_TOL:
+        if fc < fd:
+            hi, d, fd = d, c, fc
+            c = hi - ratio * (hi - lo)
+            fc = f(c)
+        else:
+            lo, c, fc = c, d, fd
+            d = lo + ratio * (hi - lo)
+            fd = f(d)
+    return (lo + hi) / 2.0
+
+
+def best_angle(measure):
+    area_at = lambda angle: plan_area(measure(angle))
+    base = area_at(0.0)
+    steps = int(round(QUARTER_TURN / COARSE_STEP))
+    half = steps // 2
+    best, best_area = 0.0, base
+    for i in range(-half, steps - half):
+        if i == 0:
+            continue
+        value = area_at(i * COARSE_STEP)
+        if value < best_area:
+            best, best_area = i * COARSE_STEP, value
+
+    fine = golden_min(area_at, best - COARSE_STEP, best + COARSE_STEP)
+    if base <= area_at(fine) * (1.0 + 1e-9):
+        return 0.0
+    while fine > QUARTER_TURN / 2.0:
+        fine -= QUARTER_TURN
+    while fine <= -QUARTER_TURN / 2.0:
+        fine += QUARTER_TURN
+    return fine
+
+
+def rectangle(box, px, py, angle):
+    cos_a, sin_a = math.cos(angle), math.sin(angle)
+    local = [("BL", box[0], box[1]),
+             ("BR", box[3], box[1]),
+             ("TR", box[3], box[4]),
+             ("TL", box[0], box[4])]
+    corners = []
+    for tag, x, y in local:
+        dx, dy = x - px, y - py
+        corners.append((tag,
+                        px + dx * cos_a - dy * sin_a,
+                        py + dx * sin_a + dy * cos_a))
+    return corners
+
+
+def near(box, point):
+    margin = 5.0 * max(box[3] - box[0], box[4] - box[1])
+    return (box[0] - margin <= point.X <= box[3] + margin and
+            box[1] - margin <= point.Y <= box[4] + margin)
+
+
+def get_body(fitting):
+    try:
+        body = fitting.Get3dBody()
+    except AttributeError:
+        raise Exception("Get3dBody is not available (needs Civil 3D 2022 or newer)")
+    if body is None:
+        raise Exception("the part has no 3D body")
+    return body
+
+
+def footprint(fitting):
+    with Scope(get_body(fitting)) as body:
+        start = box_of(body)
+        if not near(start, fitting.Position):
+            raise Exception("the 3D body is not at the fitting position")
+        px = (start[0] + start[3]) / 2.0
+        py = (start[1] + start[4]) / 2.0
+        pivot = Point3d(px, py, 0.0)
+        measure = lambda angle: box_at(body, pivot, angle)
+        angle = best_angle(measure)
+        box = measure(angle)
+    return {"corners": rectangle(box, px, py, angle),
+            "top": box[5],
+            "bottom": box[2],
+            "length": box[3] - box[0],
+            "width": box[4] - box[1],
+            "angle": math.degrees(angle)}
+
+
+def elevation(fitting, shape):
+    if elev_mode in ("bottom", "sump"):
+        return shape["bottom"]
+    if elev_mode == "insertion":
+        return fitting.Position.Z
+    return shape["top"]
+
+
+def main():
+    adoc = Application.DocumentManager.MdiActiveDocument
+    db = adoc.Database
+    civdoc = CivilApplication.ActiveDocument
+    report, points = [], []
+    parts = {}
+    failed = 0
+
+    with Scope(adoc.LockDocument()):
+        with Scope(db.TransactionManager.StartTransaction()) as t:
+            fittings, problem = collect_fittings(t, civdoc)
+            if problem:
+                return problem
+
+            for fitting in fittings:
+                part = part_label(fitting)
+                name = text_of(fitting, "Name") or part
+                try:
+                    shape = footprint(fitting)
+                    z = elevation(fitting, shape)
+                except Exception as ex:
+                    failed += 1
+                    report.append([name, part, "-", "-", "Failed: {}".format(ex)])
+                    continue
+
+                parts[part] = parts.get(part, 0) + 1
+                report.append([name, part,
+                               "{:.3f} x {:.3f}".format(shape["length"], shape["width"]),
+                               round(shape["angle"], 3), "OK"])
+
+                for tag, x, y in shape["corners"]:
+                    number = "-"
+                    if run:
+                        point_id = civdoc.CogoPoints.Add(Point3d(x, y, z), True)
+                        cogo = t.GetObject(point_id, OpenMode.ForWrite)
+                        cogo.RawDescription = "{}_{}".format(name, tag)
+                        number = cogo.PointNumber
+                    points.append([name, tag, round(x, 3), round(y, 3), round(z, 3), number])
+
+            t.Commit()
+
+    action = "Points created" if run else "Points to create (preview - set IN[1] = True)"
+    summary = "Fittings: {} | Failed: {} | {}: {} | Parts: {}".format(
+        len(fittings) - failed, failed, action, len(points),
+        ", ".join("{} ({})".format(k, v) for k, v in sorted(parts.items())) or "-")
+    return [summary, report, points]
+
+
+try:
+    OUT = main()
+except Exception as ex:
+    import traceback
+    OUT = "Error: {}\n{}".format(ex, traceback.format_exc())

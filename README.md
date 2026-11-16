@@ -8,13 +8,17 @@
 ```
 civil3d/                      ← كل ما يخص Civil 3D
 └── dynamo/                   ← أكواد Dynamo (CPython3)
-    └── pipe-networks/        ← شبكات المواسير والـ Structures
-        ├── corners-cogo/
-        │   ├── README.md          ← الشرح والمدخلات والمخرجات
-        │   └── corners-cogo.txt   ← الكود
-        └── swap-structures/
+    ├── pipe-networks/        ← شبكات المواسير والـ Structures
+    │   ├── corners-cogo/
+    │   │   ├── README.md          ← الشرح والمدخلات والمخرجات
+    │   │   └── corners-cogo.txt   ← الكود
+    │   └── swap-structures/
+    │       ├── README.md
+    │       └── swap-structures.txt
+    └── pressure-networks/    ← شبكات الضغط والـ Fittings
+        └── fitting-corners/
             ├── README.md
-            └── swap-structures.txt
+            └── fitting-corners.txt
 templates/                    ← قوالب جاهزة تبدأ منها أي كود جديد
 ```
 
@@ -27,6 +31,7 @@ templates/                    ← قوالب جاهزة تبدأ منها أي �
 |---|---|---|---|
 | [`corners-cogo`](civil3d/dynamo/pipe-networks/corners-cogo/) | Civil 3D + Dynamo (CPython3) | Pipe Networks | يقرا الـ Structures ويطلع COGO Point على الأربع أركان |
 | [`swap-structures`](civil3d/dynamo/pipe-networks/swap-structures/) | Civil 3D + Dynamo Player (CPython3) | Pipe Networks | من Dynamo Player: تحدد كذا Structure، وتختار Parts List وبعده Family وبعده Size، فيتغيّروا كلهم مرة واحدة |
+| [`fitting-corners`](civil3d/dynamo/pressure-networks/fitting-corners/) | Civil 3D + Dynamo (CPython3) | Pressure Networks | يطلع COGO Point على الأربع أركان للـ Catches (أو أي موديل) المتعرّفة كـ Fitting في Pressure Network |
 
 ## قواعد إضافة مشروع جديد
 

@@ -222,5 +222,6 @@ except Exception as ex:
 ---
 
 ## ملاحظات
+- الكود ده للـ **Structures** بتاعة الـ Pipe Network بس. لو الـ Catch متعرّف كـ **Fitting** في Pressure Network، استخدم [`fitting-corners`](../../pressure-networks/fitting-corners/).
 - ماتشغلش الكود مرتين وهو على `True`، علشان هيعمل نقط متكررة.
 - الـ Structure الدايري بتطلع أركانه على المربع اللي حوالين الدايرة (القطر × القطر).
