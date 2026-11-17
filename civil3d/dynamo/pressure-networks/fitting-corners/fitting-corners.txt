@@ -283,11 +283,15 @@ def main():
 
             t.Commit()
 
-    action = "Points created" if run else "Points to create (preview - set IN[1] = True)"
-    summary = "Fittings: {} | Failed: {} | {}: {} | Parts: {}".format(
-        len(fittings) - failed, failed, action, len(points),
+    if run:
+        headline = "DONE - {} COGO points were created in the drawing.".format(len(points))
+    else:
+        headline = ("PREVIEW ONLY - no COGO points were created. "
+                    "Set IN[1] = True and run again to create {} points.".format(len(points)))
+    summary = "Fittings: {} | Failed: {} | Parts: {}".format(
+        len(fittings) - failed, failed,
         ", ".join("{} ({})".format(k, v) for k, v in sorted(parts.items())) or "-")
-    return [summary, report, points]
+    return [headline, summary, report, points]
 
 
 try:
